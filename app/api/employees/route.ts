@@ -1,0 +1,75 @@
+import { query } from "@/lib/db"
+import { type NextRequest, NextResponse } from "next/server"
+
+export async function GET(request: NextRequest) {
+  try {
+    const result = await query(`
+      SELECT 
+        e.id, e.code, e.name, e.email, e.role, e.manager_id,
+        m.name as manager_name, e.pf_eligible, e.biometric_id, e.status,
+        ss.basic, ss.da, ss.hra, ss.ta, ss.other_allowance, ss.gross_salary
+      FROM employees e
+      LEFT JOIN employees m ON e.manager_id = m.id
+      LEFT JOIN salary_structures ss ON e.id = ss.employee_id
+      ORDER BY e.code
+    `)
+
+    const employees = result.rows.map((row) => ({
+      id: row.id,
+      code: row.code,
+      name: row.name,
+      email: row.email,
+      role: row.role,
+      manager: row.manager_name || "HR Admin",
+      pfEligible: row.pf_eligible,
+      biometricId: row.biometric_id,
+      status: row.status,
+      salaryStructure: {
+        basic: Number(row.basic) || 0,
+        da: Number(row.da) || 0,
+        hra: Number(row.hra) || 0,
+        ta: Number(row.ta) || 0,
+        otherAllowance: Number(row.other_allowance) || 0,
+      },
+    }))
+
+    return NextResponse.json(employees)
+  } catch (error) {
+    console.error("[v0] Get employees error:", error)
+    return NextResponse.json({ error: "Failed to fetch employees" }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { code, name, email, role, manager, pfEligible, biometricId, status, salaryStructure } = await request.json()
+
+    // Insert employee
+    const empResult = await query(
+      `INSERT INTO employees (code, name, email, role, pf_eligible, biometric_id, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [code, name, email, role, pfEligible, biometricId, status],
+    )
+
+    const employeeId = empResult.rows[0].id
+
+    // Insert salary structure
+    await query(
+      `INSERT INTO salary_structures (employee_id, basic, da, hra, ta, other_allowance)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        employeeId,
+        salaryStructure.basic,
+        salaryStructure.da,
+        salaryStructure.hra,
+        salaryStructure.ta,
+        salaryStructure.otherAllowance,
+      ],
+    )
+
+    return NextResponse.json({ id: employeeId, code, name, email }, { status: 201 })
+  } catch (error) {
+    console.error("[v0] Create employee error:", error)
+    return NextResponse.json({ error: "Failed to create employee" }, { status: 500 })
+  }
+}
