@@ -1,5 +1,6 @@
 import { query } from "@/lib/db"
 import { type NextRequest, NextResponse } from "next/server"
+import { verifyPassword } from "@/lib/password"
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,10 +10,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 })
     }
 
-    // Query user from database
-    const result = await query("SELECT id, email, name, role, manager_id, employee_code FROM users WHERE email = $1", [
-      email,
-    ])
+    const result = await query(
+      "SELECT id, email, name, role, manager_id, employee_code, password_hash FROM users WHERE email = $1",
+      [email],
+    )
 
     if (result.rows.length === 0) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
@@ -20,9 +21,13 @@ export async function POST(request: NextRequest) {
 
     const user = result.rows[0]
 
-    // For demo purposes, we'll accept the password as-is
-    // In production, use bcrypt to compare hashed passwords
-    if (password !== "admin123") {
+    if (!user.password_hash) {
+      return NextResponse.json({ error: "User account not properly configured" }, { status: 401 })
+    }
+
+    const isPasswordValid = await verifyPassword(password, user.password_hash)
+
+    if (!isPasswordValid) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 

@@ -12,8 +12,8 @@ import { Input } from "@/components/ui/input"
 import { AlertCircle } from "lucide-react"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("super@admin.com")
-  const [password, setPassword] = useState("admin123")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
@@ -131,7 +131,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          This is a demo HRMS system. Use any of the demo accounts above.
+          Secure HRMS system with encrypted password authentication. Demo accounts available.
         </p>
       </div>
     </div>

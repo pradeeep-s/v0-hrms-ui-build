@@ -67,7 +67,13 @@ Replace the following:
 psql -U user -d hrms_db -f scripts/schema.sql
 ```
 
-5. Start the development server:
+5. Added secure password setup - seed demo users with encrypted passwords
+Seed demo users with encrypted passwords:
+```bash
+npm run seed-users
+```
+
+6. Start the development server:
 ```bash
 npm run dev
 ```
@@ -77,9 +83,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Database Setup
 
 The HRMS system uses PostgreSQL with the following tables:
-- `users` - Employee user accounts with roles
+- `users` - Employee user accounts with roles and encrypted passwords
 - `employees` - Employee master data with salary structure
-- `salary_structure` - Detailed salary components (Basic, DA, HRA, TA, etc.)
+- `salary_structure` - Detailed salary components (Basic, DA, HRA, TA, Other Allowance)
 - `attendance` - Daily attendance records
 - `leave_requests` - Leave applications and approvals
 - `advances` - Employee advances
@@ -89,21 +95,47 @@ The HRMS system uses PostgreSQL with the following tables:
 - `biometric_devices` - Device management
 - `audit_logs` - System audit trail
 
-### Demo Credentials
+### Authentication & Security
 
-After running the schema setup, use these credentials to test:
-- **Super Admin**: admin@hrms.com / admin123
-- **HR Admin**: hr@hrms.com / hr123
-- **Manager**: manager@hrms.com / manager123
-- **Employee**: emp@hrms.com / emp123
+Added secure password authentication section
+This HRMS system uses secure password authentication with bcrypt encryption:
+
+- All passwords are hashed using bcrypt (10 salt rounds) before storage
+- Login credentials are verified against encrypted hashes in PostgreSQL
+- JWT tokens are generated upon successful authentication
+- Each role has specific access controls and routes
+
+#### Demo Credentials
+
+After running `npm run seed-users`, use these credentials to test:
+- **Super Admin**: super@admin.com / admin123
+- **HR Admin**: hr@company.com / admin123
+- **Manager**: manager@company.com / admin123
+- **Employee**: emp@company.com / admin123
 
 ### API Endpoints
 
-All data is fetched through RESTful API endpoints:
-- `POST /api/auth/login` - User authentication
+All data is fetched through RESTful API endpoints with secure authentication:
+- `POST /api/auth/login` - User authentication with password verification
 - `GET/POST /api/employees` - Employee management
 - `GET/POST /api/attendance` - Attendance tracking
 - `GET/POST /api/leave-requests` - Leave management
 - `GET/POST /api/advances` - Advance management
 - `GET/POST /api/loans` - Loan management
 - `GET/POST /api/payroll` - Payroll operations
+
+### Troubleshooting
+
+**Database connection error:**
+- Verify PostgreSQL is running: `psql --version`
+- Check DATABASE_URL in `.env.local` is correct
+- Ensure database exists: `createdb hrms_db`
+
+**Seed users script fails:**
+- Make sure schema is created first: `psql -U user -d hrms_db -f scripts/schema.sql`
+- Verify DATABASE_URL environment variable is set
+
+**Port 3000 already in use:**
+```bash
+npm run dev -- -p 3001
+```
