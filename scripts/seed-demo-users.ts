@@ -1,5 +1,15 @@
+import path from "path"
+import dotenv from "dotenv"
+
+// 👇 FORCE root .env loading
+dotenv.config({
+  path: path.resolve(process.cwd(), ".env"),
+})
+
+
 import { query } from "@/lib/db"
 import { hashPassword } from "@/lib/password"
+
 
 const demoUsers = [
   {

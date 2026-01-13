@@ -1,85 +1,96 @@
 "use client"
 
-import type React from "react"
+import { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import { useRouter } from "next/navigation"
 
-import { createContext, useContext, useCallback, useState, useEffect } from "react"
-import type { User, AuthContext as IAuthContext } from "./types"
+interface User {
+  id: number
+  email: string
+  name: string
+  role: string
+}
 
-const AuthContext = createContext<IAuthContext | undefined>(undefined)
+interface AuthContextType {
+  user: User | null
+  loading: boolean
+  logout: () => void
+  setUser: (user: User | null) => void
+}
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
-  // Initialize auth state from localStorage
   useEffect(() => {
-    const storedToken = localStorage.getItem("auth_token")
-    const storedUser = localStorage.getItem("auth_user")
-
-    if (storedToken && storedUser) {
-      setToken(storedToken)
-      setUser(JSON.parse(storedUser))
-    }
-
-    setLoading(false)
-  }, [])
-
-  const login = useCallback(async (email: string, password: string) => {
-    setLoading(true)
-    try {
-      // Call mock authentication
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Login failed")
+    // Check if user is logged in
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/auth/me", {
+          credentials: "include",
+        })
+        
+        if (res.ok) {
+          const data = await res.json()
+          setUser(data.user)
+        } else {
+          setUser(null)
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error)
+        setUser(null)
+      } finally {
+        setLoading(false)
       }
-
-      const { user: newUser, token: newToken } = await response.json()
-
-      setUser(newUser)
-      setToken(newToken)
-      localStorage.setItem("auth_token", newToken)
-      localStorage.setItem("auth_user", JSON.stringify(newUser))
-    } finally {
-      setLoading(false)
     }
+
+    checkAuth()
   }, [])
 
-  const logout = useCallback(() => {
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      })
+    } catch (error) {
+      console.error("Logout failed:", error)
+    }
+    
     setUser(null)
-    setToken(null)
-    localStorage.removeItem("auth_token")
-    localStorage.removeItem("auth_user")
-  }, [])
+    router.push("/login")
+  }
 
-  return <AuthContext.Provider value={{ user, token, loading, login, logout }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ user, loading, logout, setUser }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
   const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error("useAuth must be used within AuthProvider")
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider")
   }
   return context
 }
 
 export function useRequireAuth(requiredRole?: string) {
   const { user, loading } = useAuth()
+  const router = useRouter()
 
   useEffect(() => {
     if (!loading && !user) {
-      window.location.href = "/login"
+      // Redirect to login if not authenticated
+      router.push("/login")
+    } else if (!loading && user && requiredRole && user.role !== requiredRole) {
+      // Redirect to login if role doesn't match
+      router.push("/login")
     }
-
-    if (!loading && user && requiredRole && user.role !== requiredRole) {
-      window.location.href = "/login"
-    }
-  }, [user, loading, requiredRole])
+  }, [user, loading, requiredRole, router])
 
   return { user, loading }
 }
