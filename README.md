@@ -39,20 +39,20 @@ Continue building your app on:
 ### Installation
 
 1. Clone the repository:
-```bash
+\`\`\`bash
 git clone https://github.com/your-org/v0-hrms-ui-build.git
 cd v0-hrms-ui-build
-```
+\`\`\`
 
 2. Install dependencies:
-```bash
+\`\`\`bash
 npm install
-```
+\`\`\`
 
 3. Create a `.env.local` file in the root directory with your database configuration:
-```env
+\`\`\`env
 DATABASE_URL=postgresql://user:password@localhost:5432/hrms_db
-```
+\`\`\`
 
 Replace the following:
 - `user` - Your PostgreSQL username
@@ -62,21 +62,21 @@ Replace the following:
 - `hrms_db` - Your database name
 
 4. Set up the database schema:
-```bash
+\`\`\`bash
 # Connect to PostgreSQL and run the schema script
 psql -U user -d hrms_db -f scripts/schema.sql
-```
+\`\`\`
 
 5. Added secure password setup - seed demo users with encrypted passwords
 Seed demo users with encrypted passwords:
-```bash
+\`\`\`bash
 npm run seed-users
-```
+\`\`\`
 
 6. Start the development server:
-```bash
+\`\`\`bash
 npm run dev
-```
+\`\`\`
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
@@ -136,6 +136,6 @@ All data is fetched through RESTful API endpoints with secure authentication:
 - Verify DATABASE_URL environment variable is set
 
 **Port 3000 already in use:**
-```bash
+\`\`\`bash
 npm run dev -- -p 3001
-```
+\`\`\`

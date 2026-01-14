@@ -1,9 +1,12 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Clock, FileText, AlertCircle } from "lucide-react"
+import { Users, Clock, FileText, AlertCircle, Building2 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 export default function AdminDashboard() {
+  const { company } = useAuth()
+
   const kpis = [
     {
       label: "Total Employees",
@@ -43,8 +46,12 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
+      {/* Header with Company Context */}
       <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Building2 className="w-5 h-5 text-primary" />
+          <span className="text-sm font-medium text-muted-foreground">{company?.name || "Loading..."}</span>
+        </div>
         <h1 className="text-4xl font-bold text-foreground">HR Dashboard</h1>
         <p className="text-muted-foreground mt-2">Manage employees, attendance, and approvals</p>
       </div>

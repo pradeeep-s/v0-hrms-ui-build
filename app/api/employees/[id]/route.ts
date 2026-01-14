@@ -3,13 +3,27 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const authToken = request.cookies.get("auth_token")?.value
+    if (!authToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const decoded = JSON.parse(Buffer.from(authToken, "base64").toString())
+
+    const userResult = await query("SELECT company_id FROM users WHERE id = $1", [decoded.id])
+    if (userResult.rows.length === 0) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const userCompanyId = userResult.rows[0].company_id
+
     const result = await query(
       `SELECT e.*, m.name as manager_name, ss.basic, ss.da, ss.hra, ss.ta, ss.other_allowance
        FROM employees e
-       LEFT JOIN employees m ON e.manager_id = m.id
+       LEFT JOIN employees m ON e.manager_id = m.id AND e.company_id = m.company_id
        LEFT JOIN salary_structures ss ON e.id = ss.employee_id
-       WHERE e.id = $1`,
-      [params.id],
+       WHERE e.id = $1 AND e.company_id = $2`,
+      [params.id, userCompanyId],
     )
 
     if (result.rows.length === 0) {
@@ -43,6 +57,26 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const authToken = request.cookies.get("auth_token")?.value
+    if (!authToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const decoded = JSON.parse(Buffer.from(authToken, "base64").toString())
+
+    const userResult = await query("SELECT company_id FROM users WHERE id = $1", [decoded.id])
+    if (userResult.rows.length === 0) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const userCompanyId = userResult.rows[0].company_id
+
+    // Verify employee belongs to user's company
+    const empCheck = await query("SELECT company_id FROM employees WHERE id = $1", [params.id])
+    if (empCheck.rows.length === 0 || empCheck.rows[0].company_id !== userCompanyId) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    }
+
     const { code, name, email, role, manager, pfEligible, biometricId, status, salaryStructure } = await request.json()
 
     // Update employee

@@ -3,16 +3,35 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
   try {
-    const result = await query(`
+    const authToken = request.cookies.get("auth_token")?.value
+    if (!authToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const decoded = JSON.parse(Buffer.from(authToken, "base64").toString())
+
+    // Get user's company_id
+    const userResult = await query("SELECT company_id FROM users WHERE id = $1", [decoded.id])
+    if (userResult.rows.length === 0) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const companyId = userResult.rows[0].company_id
+
+    const result = await query(
+      `
       SELECT 
         e.id, e.code, e.name, e.email, e.role, e.manager_id,
         m.name as manager_name, e.pf_eligible, e.biometric_id, e.status,
         ss.basic, ss.da, ss.hra, ss.ta, ss.other_allowance, ss.gross_salary
       FROM employees e
-      LEFT JOIN employees m ON e.manager_id = m.id
+      LEFT JOIN employees m ON e.manager_id = m.id AND e.company_id = m.company_id
       LEFT JOIN salary_structures ss ON e.id = ss.employee_id
+      WHERE e.company_id = $1
       ORDER BY e.code
-    `)
+    `,
+      [companyId],
+    )
 
     const employees = result.rows.map((row) => ({
       id: row.id,
@@ -42,21 +61,34 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const authToken = request.cookies.get("auth_token")?.value
+    if (!authToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const decoded = JSON.parse(Buffer.from(authToken, "base64").toString())
+
+    const userResult = await query("SELECT company_id FROM users WHERE id = $1", [decoded.id])
+    if (userResult.rows.length === 0) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const companyId = userResult.rows[0].company_id
     const { code, name, email, role, manager, pfEligible, biometricId, status, salaryStructure } = await request.json()
 
-    // Insert employee
+    // Insert employee with company_id
     const empResult = await query(
-      `INSERT INTO employees (code, name, email, role, pf_eligible, biometric_id, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      [code, name, email, role, pfEligible, biometricId, status],
+      `INSERT INTO employees (code, name, email, role, pf_eligible, biometric_id, status, company_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [code, name, email, role, pfEligible, biometricId, status, companyId],
     )
 
     const employeeId = empResult.rows[0].id
 
     // Insert salary structure
     await query(
-      `INSERT INTO salary_structures (employee_id, basic, da, hra, ta, other_allowance)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO salary_structures (employee_id, basic, da, hra, ta, other_allowance, company_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         employeeId,
         salaryStructure.basic,
@@ -64,6 +96,7 @@ export async function POST(request: NextRequest) {
         salaryStructure.hra,
         salaryStructure.ta,
         salaryStructure.otherAllowance,
+        companyId,
       ],
     )
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 
 interface User {
@@ -8,39 +8,50 @@ interface User {
   email: string
   name: string
   role: string
+  company_id: number
+}
+
+interface Company {
+  id: number
+  name: string
 }
 
 interface AuthContextType {
   user: User | null
+  company: Company | null
   loading: boolean
   logout: () => void
   setUser: (user: User | null) => void
+  setCompany: (company: Company | null) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    // Check if user is logged in
     const checkAuth = async () => {
       try {
         const res = await fetch("/api/auth/me", {
           credentials: "include",
         })
-        
+
         if (res.ok) {
           const data = await res.json()
           setUser(data.user)
+          setCompany(data.company)
         } else {
           setUser(null)
+          setCompany(null)
         }
       } catch (error) {
         console.error("Auth check failed:", error)
         setUser(null)
+        setCompany(null)
       } finally {
         setLoading(false)
       }
@@ -58,13 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Logout failed:", error)
     }
-    
+
     setUser(null)
+    setCompany(null)
     router.push("/login")
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout, setUser }}>
+    <AuthContext.Provider value={{ user, company, loading, logout, setUser, setCompany }}>
       {children}
     </AuthContext.Provider>
   )
@@ -84,10 +96,8 @@ export function useRequireAuth(requiredRole?: string) {
 
   useEffect(() => {
     if (!loading && !user) {
-      // Redirect to login if not authenticated
       router.push("/login")
     } else if (!loading && user && requiredRole && user.role !== requiredRole) {
-      // Redirect to login if role doesn't match
       router.push("/login")
     }
   }, [user, loading, requiredRole, router])

@@ -6,10 +6,13 @@ dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
 })
 
-
 import { query } from "@/lib/db"
 import { hashPassword } from "@/lib/password"
 
+const demoCompany = {
+  name: "Default Company",
+  status: "ACTIVE",
+}
 
 const demoUsers = [
   {
@@ -31,7 +34,6 @@ const demoUsers = [
     name: "Team Manager",
     role: "MANAGER",
     employee_code: "MGR001",
-    manager_id: null,
     password: "admin123",
   },
   {
@@ -39,34 +41,45 @@ const demoUsers = [
     name: "Employee",
     role: "EMPLOYEE",
     employee_code: "EMP001",
-    manager_id: 3,
     password: "admin123",
   },
 ]
 
-async function seedUsers() {
+async function seedDatabase() {
   try {
-    console.log("[v0] Seeding demo users...")
+    console.log("[v0] Starting database seeding...")
+
+    const companyResult = await query(
+      `INSERT INTO companies (name, status)
+       VALUES ($1, $2)
+       ON CONFLICT (name) DO UPDATE SET status = $2
+       RETURNING id`,
+      [demoCompany.name, demoCompany.status],
+    )
+
+    const companyId = companyResult.rows[0].id
+    console.log(`[v0] Company created/updated: ${companyId}`)
 
     for (const user of demoUsers) {
       const passwordHash = await hashPassword(user.password)
 
       await query(
-        `INSERT INTO users (email, name, role, employee_code, manager_id, password_hash)
+        `INSERT INTO users (email, name, role, employee_code, password_hash, company_id)
          VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (email) DO UPDATE
-         SET password_hash = $6, name = $2, role = $3`,
-        [user.email, user.name, user.role, user.employee_code, user.manager_id || null, passwordHash],
+         SET password_hash = $5, name = $2, role = $3`,
+        [user.email, user.name, user.role, user.employee_code, passwordHash, companyId],
       )
 
       console.log(`[v0] Created/updated user: ${user.email}`)
     }
 
-    console.log("[v0] Demo users seeded successfully!")
+    console.log("[v0] Database seeding completed successfully!")
+    process.exit(0)
   } catch (error) {
-    console.error("[v0] Error seeding users:", error)
-    throw error
+    console.error("[v0] Error seeding database:", error)
+    process.exit(1)
   }
 }
 
-seedUsers()
+seedDatabase()
